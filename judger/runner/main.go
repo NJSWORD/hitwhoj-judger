@@ -9,6 +9,7 @@ import (
 	"lackofdream/oj/judger/models"
 	"lackofdream/oj/judger/languages"
 	"time"
+	"syscall"
 )
 
 const (
@@ -22,22 +23,29 @@ const (
 )
 
 func compile(cmd *exec.Cmd, c chan <- int) {
-	cmd.Run()
-	c <- 1
+	err := cmd.Wait()
+	if err == nil {
+		c <- 1
+	}
 }
 
+// cmd.Process.Kill() doesn't kill child processes.
+// see in http://stackoverflow.com/questions/22470193/why-wont-go-kill-a-child-process-correctly
 func runCompile(state *models.Run, cmd ...string) {
 	command := exec.Command(cmd[0], cmd[1:]...)
+	command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	stdErr, _ := command.StderrPipe()
 	finC := make(chan int)
 	defer close(finC)
+	command.Start()
+	pgid, _ := syscall.Getpgid(command.Process.Pid)
 	go compile(command, finC)
 	select {
 	case <-time.After(5 * time.Second):
 		log.Println("Compile timeout, kill it")
 		state.Status = COMPILE_ERROR
 		state.Data = "timeout\n"
-		command.Process.Kill()
+		syscall.Kill(-pgid, 9)
 		return
 	case <-finC:
 	}
