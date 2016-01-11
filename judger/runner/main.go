@@ -30,26 +30,18 @@ func runCompile(state *models.Run, cmd ...string) {
 	command := exec.Command(cmd[0], cmd[1:]...)
 	stdErr, _ := command.StderrPipe()
 	finC := make(chan int)
+	defer close(finC)
 	go compile(command, finC)
-	fin := 0
-	for {
-		if fin == 0 {
-			select {
-			case <-time.After(5 * time.Second):
-				log.Println("Compile timeout, killing it...")
-				state.Status = COMPILE_ERROR
-				state.Data = "timeout\n"
-				command.Process.Kill()
-				log.Println("compiler killed")
-				return
-			case <-finC:
-				fin = 1
-			}
-		} else {
-			break
-		}
+	select {
+	case <-time.After(5 * time.Second):
+		log.Println("Compile timeout, kill it")
+		state.Status = COMPILE_ERROR
+		state.Data = "timeout\n"
+		command.Process.Kill()
+		return
+	case <-finC:
 	}
-	close(finC)
+
 	stdErrBuf := new(bytes.Buffer)
 	stdErrBuf.ReadFrom(stdErr)
 	stdErrStr := stdErrBuf.String()
