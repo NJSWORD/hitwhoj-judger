@@ -4,137 +4,201 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/exec"
+	"flag"
 
 	"github.com/garyburd/redigo/redis"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
-	"lackofdream/oj/runInstanceModel"
-	"lackofdream/oj/problemModel"
+	"lackofdream/oj/judger/models"
+	"lackofdream/oj/judger/languages"
 	"io/ioutil"
 	"strings"
 	"bytes"
+	"lackofdream/oj/judger/runner"
 )
 
 
+var (
+	redisHost string
+	redisPort string
+	redisAddress string
+	redisKey string
+	mongoHost string
+	mongoPort string
+	mongoAddress string
+	maxWorkers int
+
+	redisConnection redis.Conn
+	mongoSession *mgo.Session
+)
+
+func init() {
+	flag.StringVar(&redisHost, "redis-host", "localhost", "IP address of Redis")
+	flag.StringVar(&redisPort, "redis-port", "6379", "Port number of Redis")
+	flag.StringVar(&redisKey, "redis-key", "runs", "Key in Redis which store run instance IDs")
+	flag.StringVar(&mongoHost, "mongo-host", "localhost", "IP address of MongoDB")
+	flag.StringVar(&mongoPort, "mongo-port", "27017", "Port number of MongoDB")
+	flag.IntVar(&maxWorkers, "max-workers", 4, "Maximum number of workers")
+
+	flag.Parse()
+	redisAddress = redisHost + ":" + redisPort
+	mongoAddress = mongoHost + ":" + mongoPort
+
+	var err error
+
+	log.Println("Starting judge client...")
+
+	// 连接 Redis 消息队列
+	log.Println("Connecting to Redis...")
+	redisConnection, err = redis.Dial("tcp", redisAddress)
+	handleFatalErr(err, "connect to Redis")
+	log.Println("Connected to Redis")
+	// 连接 Mongodb
+	log.Println("Connecting to MongoDB...")
+	mongoSession, err = mgo.Dial(mongoAddress)
+	handleFatalErr(err, "connect to MongoDB")
+	log.Println("Connected to MongoDB")
+}
+
 func handleFatalErr(err error, position string) {
 	if err != nil {
-		log.Fatal("error in", position)
+		log.Fatal("error in ", position)
 		log.Println(err.Error())
 		os.Exit(1)
 	}
 }
 
-func handleNormalErr(err error, position string) bool {
+func handleNormalErr(err error, position string, successPrompt string) bool {
 	if err != nil {
 		log.Printf("error in %s\n", position)
 		log.Println(err.Error())
 		return true
 	}
+	log.Println(successPrompt)
 	return false
 }
 
-func consume(runID int) {
-
-	// 连接 Mongodb
-	session, err := mgo.Dial(os.Args[4])
-	if handleNormalErr(err, "connect to mongodb") {
-		return
+func worker(wid int, jobs <-chan int) {
+	for j := range jobs {
+		log.Printf("Worker%d get runID %d\n", wid, j)
+		work(j)
 	}
+}
+
+func getRunInstance(runID int) (models.Run, error) {
+	runsCollection := mongoSession.DB("oj").C("runs")
+	var runInstance models.Run
+	err := runsCollection.Find(bson.M{"rid": runID}).One(&runInstance)
+	return runInstance, err
+}
+
+func getProblem(pID int) (models.Problem, error) {
+	problemsCollection := mongoSession.DB("oj").C("problems")
+	var problem models.Problem
+	err := problemsCollection.Find(bson.M{"pid": pID}).One(&problem)
+	return problem, err
+}
+
+func createFileFromGridFS(path string, objectID bson.ObjectId, perm os.FileMode) error {
+	gridFS := mongoSession.DB("oj").GridFS("fs")
+	grid, err := gridFS.OpenId(objectID)
+	if err != nil {
+		return err
+	}
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(grid)
+	ioutil.WriteFile(path, buf.Bytes(), perm)
+	return nil
+}
+
+func work(runID int) {
 
 	//  获取 runInstance
-	db := session.DB("oj")
-	runsCollection := db.C("runs")
-	problemsCollection := db.C("problems")
-	gridFS := db.GridFS("fs")
-	var runInstance runInstanceModel.Run
-	err = runsCollection.Find(bson.M{"rid": runID}).One(&runInstance)
-	if handleNormalErr(err, "find runInstance in mongodb") {
+	runInstance, err := getRunInstance(runID)
+	if handleNormalErr(err, "find runInstance in mongodb", "runInstance found") {
 		return
 	}
-
+	defer func (){
+		log.Println("Updating runInstance in MongoDB...")
+		err := mongoSession.DB("oj").C("runs").Update(bson.M{"_id": runInstance.Id}, bson.M{"$set": runInstance})
+		if err != nil {
+			log.Println("Failed to update runInstance")
+			log.Println(err.Error())
+		} else {
+			log.Println("runInstance Updated")
+		}
+	}()
 	// 获取问题数据
-	problemID := runInstance.Pid
-	var problem problemModel.Problem
-	err = problemsCollection.Find(bson.M{"pid": problemID}).One(&problem)
-	if handleNormalErr(err, "fetch problem from mongodb") {
+	problem, err := getProblem(runInstance.Pid)
+	if handleNormalErr(err, "fetch problem from mongodb", "problem found") {
 		return
 	}
 
-	// 创建 /tmp/oj_run/runID 工作目录，用于docker挂载
+	// 创建 /tmp/oj_run/runID 工作目录
 	workDir := fmt.Sprintf("/tmp/oj_run/%d", runID)
-	cmd := exec.Command("mkdir", "-p", workDir, workDir + "/public", workDir + "/private")
-	err = cmd.Run()
-	if handleNormalErr(err, "create run folder") {
+	err = os.MkdirAll(workDir, 0755)
+	if handleNormalErr(err, "create run folder", "working directory created") {
 		return
 	}
+
+	// 进入工作目录
+	os.Chdir(workDir)
 
 	// 获取输入、输出文件
-	inDataID := problem.In
-	inF, err := gridFS.OpenId(inDataID)
-	if handleNormalErr(err, "fetch in.txt from GridFS") {
+	err = createFileFromGridFS("in.txt", problem.In, 0644)
+	if handleNormalErr(err, "fetch in.txt from GridFS", "in.txt found") {
 		return
 	}
-	inBuf := new(bytes.Buffer)
-	inBuf.ReadFrom(inF)
-	ioutil.WriteFile(workDir + "/public/in.txt", inBuf.Bytes(), 0644)
 
-	outDataID := problem.Out
-	outF, err := gridFS.OpenId(outDataID)
-	if handleNormalErr(err, "fetch out.txt from GridFS") {
+	err = createFileFromGridFS("out.txt", problem.Out, 0644)
+	if handleNormalErr(err, "fetch out.txt from GridFS", "out.txt found") {
 		return
 	}
-	outBuf := new(bytes.Buffer)
-	outBuf.ReadFrom(outF)
-	ioutil.WriteFile(workDir + "/private/out.txt", outBuf.Bytes(), 0644)
-
 	// Special Judge Related
 	if problem.Is_spj {
-		spjID := problem.Spj
-		spjF, err := gridFS.OpenId(spjID)
-		if handleNormalErr(err, "fetch spj from GridFS") {
+		err = createFileFromGridFS("spj", problem.Spj, 0744)
+		if handleNormalErr(err, "fetch spj from GridFS", "special judge binary found") {
 			return
 		}
-		spjBuf := new(bytes.Buffer)
-		spjBuf.ReadFrom(spjF)
-		ioutil.WriteFile(workDir + "/public/spj", spjBuf.Bytes(), 0744)
 	}
 
 	// 创建源代码文件
 	var fileName string
-	switch strings.ToLower(runInstance.Lang) {
-	case "c":
-		fileName = "Main.c"
-	case "c++":
-		fileName = "Main.cpp"
-	case "java":
-		fileName = "Main.java"
-	}
-	ioutil.WriteFile(workDir + "/public/" + fileName, []byte(runInstance.Source), 0644)
+	lang := strings.ToLower(runInstance.Lang)
+	fileName = languages.Languages[lang].SourceFile
+	ioutil.WriteFile(fileName, []byte(runInstance.Source), 0644)
+	log.Printf("%s created\n", fileName)
 
-	// TODO: docker run ...
-	log.Println("next step: create a docker container")
+	log.Println("Now wait for compile")
+
+	runner.Compile(&runInstance)
 }
 
 func main() {
-	// 检测参数个数，参数个数小于4则显示 usage 信息
-	if len(os.Args) < 5 {
-		fmt.Printf("usage: %s REDIS_HOST REDIS_PORT REDIS_KEY MONGO_URL\n", os.Args[0])
-		return
+
+
+	defer redisConnection.Close()
+	defer mongoSession.Close()
+
+	// spawn workers
+	log.Println("Spawning workers...")
+	jobs := make(chan int)
+	for i := 0; i < maxWorkers; i++ {
+		log.Printf("Spawning worker%d...\n", i)
+		go worker(i, jobs)
 	}
-	// 连接 Redis 消息队列
-	conn, err := redis.Dial("tcp", os.Args[1] + ":" + os.Args[2])
-	handleFatalErr(err, "connect to redis")
-	defer conn.Close()
+	log.Printf("Workers spawned, totally %d\n", maxWorkers)
+
 	// 接受消息
 	for {
-		run, err := conn.Do("BLPOP", os.Args[3], "0")
+		log.Println("Waiting for run instance...")
+		run, err := redisConnection.Do("BLPOP", redisKey, "0")
 		handleFatalErr(err, "fetch message from redis")
 		// 获取 int 类型的 runID
 		runID, err := redis.Int(run.([]interface{})[1], err)
 		handleFatalErr(err, "convert to runID from redis data")
 		log.Printf("get runID: %v\n", runID)
-		consume(runID)
+		jobs <- runID
 	}
 }
