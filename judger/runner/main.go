@@ -77,7 +77,7 @@ func runCompile(state *models.Run, cmd string) error {
 		state.Data = stdErrStr
 		return errors.New("Compile Error")
 	}
-	return
+	return nil
 }
 
 func Compile(state *models.Run) error {
@@ -221,10 +221,10 @@ func Validate(state *models.Run) error {
 	info, err := parseLRUN("lrun.txt")
 	if err != nil {
 		state.Status = RUN_TIME_ERROR
-		return
+		return nil
 	}
 	if !validateLRUN(state, info) {
-		return
+		return nil
 	}
 
 	ok, err := diff("out.txt", "user_out.txt")
@@ -233,7 +233,7 @@ func Validate(state *models.Run) error {
 	} else if ok {
 		state.Status = ACCEPT
 		writeRuntimeInfoToState(state, info)
-		return
+		return nil
 	}
 
 	ok, err = stripDiff("out.txt", "user_out.txt")
@@ -242,10 +242,10 @@ func Validate(state *models.Run) error {
 	} else if ok {
 		state.Status = PRESENTATION_ERROR
 		writeRuntimeInfoToState(state, info)
-		return
+		return nil
 	}
 
 	state.Status = WRONG_ANSWER
 	writeRuntimeInfoToState(state, info)
-	return
+	return nil
 }

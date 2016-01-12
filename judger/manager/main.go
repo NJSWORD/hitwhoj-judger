@@ -130,7 +130,7 @@ func work(runID int) error {
 		err := mongoSession.DB("oj").C("runs").Update(bson.M{"_id": runInstance.Id}, bson.M{"$set": runInstance})
 		if err != nil {
 			log.Println("Failed to update runInstance")
-			return err
+			return
 		} else {
 			log.Println("runInstance Updated")
 		}
