@@ -23,9 +23,9 @@ type Run struct {
 	Lang     string        `bson:"lang"`
 	Pid      int           `bson:"pid"`
 	Status   int           `bson:"status"`
-	Data     string        `bson:"data"` // CE信息等
-	Time     int           `bson:"time"`
-	Memory   int           `bson:"memory"`
+	Data     string        `bson:"data"`   // CE信息等
+	Time     int           `bson:"time"`   // ms
+	Memory   int           `bson:"memory"` // KB
 	Date     int           `bson:"date"`
-	Username int           `bson:"username"`
+	Username string        `bson:"username"`
 }
