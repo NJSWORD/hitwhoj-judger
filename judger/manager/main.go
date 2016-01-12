@@ -28,6 +28,8 @@ var (
 	mongoPort string
 	mongoAddress string
 	maxWorkers int
+	judgeUID int
+	judgeGID int
 
 	redisConnection redis.Conn
 	mongoSession *mgo.Session
@@ -40,6 +42,8 @@ func init() {
 	flag.StringVar(&mongoHost, "mongo-host", "localhost", "IP address of MongoDB")
 	flag.StringVar(&mongoPort, "mongo-port", "27017", "Port number of MongoDB")
 	flag.IntVar(&maxWorkers, "max-workers", 4, "Maximum number of workers")
+	flag.IntVar(&judgeUID, "uid", 1000, "UID for judge user")
+	flag.IntVar(&judgeGID, "gid", 1000, "GID for judge group")
 
 	flag.Parse()
 	redisAddress = redisHost + ":" + redisPort
@@ -50,12 +54,12 @@ func init() {
 	log.Println("Starting judge client...")
 
 	// 连接 Redis 消息队列
-	log.Println("Connecting to Redis...")
+	log.Printf("Connecting to Redis: %s...\n", redisAddress)
 	redisConnection, err = redis.Dial("tcp", redisAddress)
 	handleFatalErr(err, "connect to Redis")
 	log.Println("Connected to Redis")
 	// 连接 Mongodb
-	log.Println("Connecting to MongoDB...")
+	log.Printf("Connecting to MongoDB: %s...\n", mongoAddress)
 	mongoSession, err = mgo.Dial(mongoAddress)
 	handleFatalErr(err, "connect to MongoDB")
 	log.Println("Connected to MongoDB")
@@ -72,7 +76,6 @@ func handleFatalErr(err error, position string) {
 func handleNormalErr(err error, position string, successPrompt string) bool {
 	if err != nil {
 		log.Printf("error in %s\n", position)
-		log.Println(err.Error())
 		return true
 	}
 	log.Println(successPrompt)
@@ -82,7 +85,10 @@ func handleNormalErr(err error, position string, successPrompt string) bool {
 func worker(wid int, jobs <-chan int) {
 	for j := range jobs {
 		log.Printf("Worker%d get runID %d\n", wid, j)
-		work(j)
+		err := work(j)
+		if err != nil {
+			log.Println(err.Error())
+		}
 	}
 }
 
@@ -112,19 +118,19 @@ func createFileFromGridFS(path string, objectID bson.ObjectId, perm os.FileMode)
 	return nil
 }
 
-func work(runID int) {
+func work(runID int) error {
 
 	//  获取 runInstance
 	runInstance, err := getRunInstance(runID)
 	if handleNormalErr(err, "find runInstance in mongodb", "runInstance found") {
-		return
+		return err
 	}
-	defer func (){
+	defer func() {
 		log.Println("Updating runInstance in MongoDB...")
 		err := mongoSession.DB("oj").C("runs").Update(bson.M{"_id": runInstance.Id}, bson.M{"$set": runInstance})
 		if err != nil {
 			log.Println("Failed to update runInstance")
-			log.Println(err.Error())
+			return err
 		} else {
 			log.Println("runInstance Updated")
 		}
@@ -132,14 +138,14 @@ func work(runID int) {
 	// 获取问题数据
 	problem, err := getProblem(runInstance.Pid)
 	if handleNormalErr(err, "fetch problem from mongodb", "problem found") {
-		return
+		return err
 	}
 
 	// 创建 /tmp/oj_run/runID 工作目录
 	workDir := fmt.Sprintf("/tmp/oj_run/%d", runID)
 	err = os.MkdirAll(workDir, 0755)
 	if handleNormalErr(err, "create run folder", "working directory created") {
-		return
+		return err
 	}
 
 	// 进入工作目录
@@ -148,18 +154,18 @@ func work(runID int) {
 	// 获取输入、输出文件
 	err = createFileFromGridFS("in.txt", problem.In, 0644)
 	if handleNormalErr(err, "fetch in.txt from GridFS", "in.txt found") {
-		return
+		return err
 	}
 
 	err = createFileFromGridFS("out.txt", problem.Out, 0644)
 	if handleNormalErr(err, "fetch out.txt from GridFS", "out.txt found") {
-		return
+		return err
 	}
 	// Special Judge Related
 	if problem.Is_spj {
 		err = createFileFromGridFS("spj", problem.Spj, 0744)
 		if handleNormalErr(err, "fetch spj from GridFS", "special judge binary found") {
-			return
+			return err
 		}
 	}
 
@@ -172,7 +178,15 @@ func work(runID int) {
 
 	log.Println("Now wait for compile")
 
-	runner.Compile(&runInstance)
+	if err := runner.Compile(&runInstance); err!=nil {
+		return err
+	}
+
+	err = runner.Execute(&runInstance, problem.Time_limit, problem.Memory_limit, 1000, 1000)
+	if err != nil {
+		return err
+	}
+	return runner.Validate(&runInstance)
 }
 
 func main() {

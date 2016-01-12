@@ -4,13 +4,16 @@ import "gopkg.in/mgo.v2/bson"
 
 
 type Problem struct {
-	Id        bson.ObjectId `bson:"_id"`
-	Pid       int           `bson:"pid"`
-	Statement string        `bson:"statement"`
-	In        bson.ObjectId `bson:"in"`
-	Out       bson.ObjectId `bson:"out"`
-	Is_spj    bool          `bson:"is_spj"`
-	Spj       bson.ObjectId `bson:"spj"`
+	Id           bson.ObjectId `bson:"_id"`
+	Pid          int           `bson:"pid"`
+	Title        string        `bson:"title"`
+	Statement    string        `bson:"statement"`
+	In           bson.ObjectId `bson:"in"`
+	Out          bson.ObjectId `bson:"out"`
+	Is_spj       bool          `bson:"is_spj"`
+	Spj          bson.ObjectId `bson:"spj"`
+	Time_limit   int           `bson:"time_limit"`   // ms
+	Memory_limit int           `bson:"memory_limit"` // MB
 }
 
 type Run struct {
