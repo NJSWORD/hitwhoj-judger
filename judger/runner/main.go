@@ -58,7 +58,7 @@ func runCompile(state *models.Run, cmd string) error {
 	command.Start()
 	go getStrFromPipe(stdErr, &stdErrStr)
 	pgid, err := syscall.Getpgid(command.Process.Pid)
-	if err!=nil {
+	if err != nil {
 		return err
 	}
 	go compile(command, finC)
@@ -103,9 +103,9 @@ func Execute(state *models.Run, timeLimit, memoryLimit, uid, gid int) error {
 
 	cmdStr :=
 	" lrun " +
-	" --max-cpu-time " + fmt.Sprintf("%.6f", float32(timeLimit) / 1000) +
-	" --max-real-time " + fmt.Sprintf("%.6f", float32(timeLimit) / 500) +
-	" --max-memory " + fmt.Sprintf("%dm", memoryLimit) +
+	" --max-cpu-time " + fmt.Sprintf("%.6f", timeLimit * languages.Languages[state.Lang].TimeOffset / 1000) +
+	" --max-real-time " + fmt.Sprintf("%.6f", timeLimit * languages.Languages[state.Lang].TimeOffset / 500) +
+	" --max-memory " + fmt.Sprintf("%dm", int(memoryLimit * languages.Languages[state.Lang].MemoryOffset)) +
 	" --syscalls '" + languages.Languages[state.Lang].Syscalls + "'" +
 	" --remount-dev true " +
 	" --network false " +

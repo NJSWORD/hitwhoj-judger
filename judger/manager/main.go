@@ -178,7 +178,7 @@ func work(runID int) error {
 
 	log.Println("Now wait for compile")
 
-	if err := runner.Compile(&runInstance); err!=nil {
+	if err := runner.Compile(&runInstance); err != nil {
 		return err
 	}
 
@@ -190,7 +190,6 @@ func work(runID int) error {
 }
 
 func main() {
-
 
 	defer redisConnection.Close()
 	defer mongoSession.Close()

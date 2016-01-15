@@ -13,7 +13,7 @@ type Problem struct {
 	Is_spj       bool          `bson:"is_spj"`
 	Spj          bson.ObjectId `bson:"spj"`
 	Time_limit   int           `bson:"time_limit"`   // ms
-	Memory_limit int           `bson:"memory_limit"` // MB
+	Memory_limit int           `bson:"memory_limit"` // KB
 }
 
 type Run struct {
