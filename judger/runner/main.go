@@ -105,7 +105,7 @@ func Execute(state *models.Run, timeLimit, memoryLimit, uid, gid int) error {
 	" lrun " +
 	" --max-cpu-time " + fmt.Sprintf("%.6f", float32(timeLimit) * languages.Languages[state.Lang].TimeOffset / 1000) +
 	" --max-real-time " + fmt.Sprintf("%.6f", float32(timeLimit) * languages.Languages[state.Lang].TimeOffset / 500) +
-	" --max-memory " + fmt.Sprintf("%dm", int(float32(memoryLimit) * languages.Languages[state.Lang].MemoryOffset)) +
+	" --max-memory " + fmt.Sprintf("%dk", int(float32(memoryLimit) * languages.Languages[state.Lang].MemoryOffset)) +
 	" --syscalls '" + languages.Languages[state.Lang].Syscalls + "'" +
 	" --remount-dev true " +
 	" --network false " +
