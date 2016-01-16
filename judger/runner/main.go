@@ -109,7 +109,6 @@ func Execute(state *models.Run, timeLimit, memoryLimit, uid, gid int) error {
 	" --syscalls '" + languages.Languages[state.Lang].Syscalls + "'" +
 	" --remount-dev true " +
 	" --network false " +
-	" --max-nprocess 20 " +
 	" --uid " + fmt.Sprintf("%d", uid) +
 	" --gid " + fmt.Sprintf("%d", gid) +
 	" --reset-env true " + languages.Languages[state.Lang].RunCmd + " 0<in.txt " + " 1>user_out.txt " + " 2>user_err.txt " + " 3>lrun.txt "

@@ -144,6 +144,7 @@ func work(runID int) error {
 	// 创建 /tmp/oj_run/runID 工作目录
 	workDir := fmt.Sprintf("/tmp/oj_run/%d", runID)
 	err = os.MkdirAll(workDir, 0755)
+	defer os.RemoveAll(workDir)
 	if handleNormalErr(err, "create run folder", "working directory created") {
 		return err
 	}

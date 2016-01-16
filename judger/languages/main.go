@@ -37,8 +37,8 @@ func init() {
 
 	Languages["java"] = language{
 		"Main.java",
-		" javac -g:none -Xlint Main.java ", // javac -g:none -Xlint Main.java
-		" java -client -Xmx512M Main ", //  java -client Main
+		" javac Main.java ", // javac -g:none -Xlint Main.java
+		" java Main ", //  java -client Main
 		"!execve:k,flock:k,ptrace:k,sync:k,fdatasync:k,fsync:k,msync,sync_file_range:k,syncfs:k,unshare:k,setns:k,clone[a&268435456==268435456]:k,query_module:k,sysinfo:k,syslog:k,sysfs:k",
 		2,
 		2,
