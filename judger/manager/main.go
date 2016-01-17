@@ -153,41 +153,41 @@ func work(runID int) error {
 	os.Chdir(workDir)
 
 	// 获取输入、输出文件
-	err = createFileFromGridFS("in.txt", problem.In, 0644)
+	err = createFileFromGridFS(workDir + "/in.txt", problem.In, 0644)
 	if handleNormalErr(err, "fetch in.txt from GridFS", "in.txt found") {
 		return err
 	}
 
-	err = createFileFromGridFS("out.txt", problem.Out, 0644)
+	err = createFileFromGridFS(workDir + "/out.txt", problem.Out, 0644)
 	if handleNormalErr(err, "fetch out.txt from GridFS", "out.txt found") {
 		return err
 	}
 	// Special Judge Related
 	if problem.Is_spj {
-		err = createFileFromGridFS("spj", problem.Spj, 0744)
+		err = createFileFromGridFS(workDir + "/spj", problem.Spj, 0744)
 		if handleNormalErr(err, "fetch spj from GridFS", "special judge binary found") {
 			return err
 		}
 	}
 
 	// 创建源代码文件
-	var fileName string
+	var sourcePath string
 	lang := strings.ToLower(runInstance.Lang)
-	fileName = languages.Languages[lang].SourceFile
-	ioutil.WriteFile(fileName, []byte(runInstance.Source), 0644)
-	log.Printf("%s created\n", fileName)
+	sourcePath = workDir + "/" + languages.Languages[lang].SourceFile
+	ioutil.WriteFile(sourcePath, []byte(runInstance.Source), 0644)
+	log.Printf("%s created\n", sourcePath)
 
 	log.Println("Now wait for compile")
 
-	if err := runner.Compile(&runInstance); err != nil {
+	if err := runner.Compile(workDir, &runInstance); err != nil {
 		return err
 	}
 
-	err = runner.Execute(&runInstance, problem.Time_limit, problem.Memory_limit, 1000, 1000)
+	err = runner.Execute(workDir, &runInstance, problem.Time_limit, problem.Memory_limit, 1000, 1000)
 	if err != nil {
 		return err
 	}
-	return runner.Validate(&runInstance)
+	return runner.Validate(workDir, &runInstance)
 }
 
 func main() {

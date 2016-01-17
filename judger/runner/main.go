@@ -45,8 +45,8 @@ func getStrFromPipe(pipe io.Reader, str *string) {
 
 // cmd.Process.Kill() doesn't kill child processes.
 // see in http://stackoverflow.com/questions/22470193/why-wont-go-kill-a-child-process-correctly
-func runCompile(state *models.Run, cmd string) error {
-	command := exec.Command("bash", "-c", cmd)
+func runCompile(workDir string, state *models.Run, cmd string) error {
+	command := exec.Command("bash", "-c", fmt.Sprintf(cmd, workDir, workDir))
 	command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	stdErr, err := command.StderrPipe()
 	if err != nil {
@@ -80,12 +80,12 @@ func runCompile(state *models.Run, cmd string) error {
 	return nil
 }
 
-func Compile(state *models.Run) error {
+func Compile(workDir string, state *models.Run) error {
 
 	log.Println("Starting compiling...")
 	if lang, ok := languages.Languages[state.Lang]; ok {
-		if _, err := os.Stat(lang.SourceFile); err == nil {
-			return runCompile(state, lang.CompileCmd)
+		if _, err := os.Stat(workDir + "/" + lang.SourceFile); err == nil {
+			return runCompile(workDir, state, lang.CompileCmd)
 		} else {
 			state.Status = SOURCE_NOT_FOUND
 			return errors.New("Compile Error")
@@ -97,7 +97,7 @@ func Compile(state *models.Run) error {
 	}
 }
 
-func Execute(state *models.Run, timeLimit, memoryLimit, uid, gid int) error {
+func Execute(workDir string, state *models.Run, timeLimit, memoryLimit, uid, gid int) error {
 
 	log.Println("Executing Main...")
 
@@ -111,8 +111,11 @@ func Execute(state *models.Run, timeLimit, memoryLimit, uid, gid int) error {
 	" --network false " +
 	" --uid " + fmt.Sprintf("%d", uid) +
 	" --gid " + fmt.Sprintf("%d", gid) +
-	" --reset-env true " + languages.Languages[state.Lang].RunCmd + " 0<in.txt " + " 1>user_out.txt " + " 2>user_err.txt " + " 3>lrun.txt "
-	log.Printf("Command to run: %v", cmdStr)
+	" --reset-env true " + fmt.Sprintf(languages.Languages[state.Lang].RunCmd, workDir) +
+	fmt.Sprintf(" 0<%s/in.txt ", workDir) +
+	fmt.Sprintf(" 1>%s/user_out.txt ", workDir) +
+	fmt.Sprintf(" 2>%s/user_err.txt ", workDir) +
+	fmt.Sprintf(" 3>%s/lrun.txt ", workDir)
 	cmd := exec.Command("bash", "-c", cmdStr)
 	return cmd.Run()
 }
@@ -136,6 +139,9 @@ func parseLRUN(path string) (lrunInfo, error) {
 	rawTexts := strings.Split(rawText, "\n")
 	var tmp string
 	var tmpFloat float32
+	if len(rawTexts) < 7 {
+		return info, errors.New("error when parsing lrun.txt")
+	}
 	fmt.Sscanf(rawTexts[0], "%s%d", &tmp, &(info.Memory))
 	info.Memory = info.Memory / 1024
 	fmt.Sscanf(rawTexts[1], "%s%f", &tmp, &tmpFloat)
@@ -216,17 +222,17 @@ func writeRuntimeInfoToState(state *models.Run, info lrunInfo) {
 	state.Memory = info.Memory
 }
 
-func Validate(state *models.Run) error {
-	info, err := parseLRUN("lrun.txt")
+func Validate(workDir string, state *models.Run) error {
+	info, err := parseLRUN(workDir+"/lrun.txt")
 	if err != nil {
 		state.Status = RUN_TIME_ERROR
-		return nil
+		return err
 	}
 	if !validateLRUN(state, info) {
 		return nil
 	}
 
-	ok, err := diff("out.txt", "user_out.txt")
+	ok, err := diff(workDir+"/out.txt", workDir+"/user_out.txt")
 	if err != nil {
 		return err
 	} else if ok {
@@ -235,7 +241,7 @@ func Validate(state *models.Run) error {
 		return nil
 	}
 
-	ok, err = stripDiff("out.txt", "user_out.txt")
+	ok, err = stripDiff(workDir+"/out.txt", workDir+"/user_out.txt")
 	if err != nil {
 		return err
 	} else if ok {
