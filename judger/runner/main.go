@@ -2,35 +2,35 @@ package runner
 
 import (
 	"bytes"
+	"log"
 	"os"
 	"os/exec"
-	"log"
 
-	"lackofdream/oj/judger/models"
-	"lackofdream/oj/judger/languages"
-	"time"
-	"syscall"
-	"io"
-	"fmt"
-	"strings"
-	"io/ioutil"
-	"errors"
 	"crypto/md5"
+	"errors"
+	"fmt"
+	"io"
+	"io/ioutil"
+	"lackofdream/hitwhoj/judger/languages"
+	"lackofdream/hitwhoj/judger/models"
+	"strings"
+	"syscall"
+	"time"
 )
 
 const (
-	WAIT_FOR_JUDGE = 0
-	COMPILE_ERROR = 1
-	RUN_TIME_ERROR = 2
-	TIME_LIMIT_EXCEED = 3
+	WAIT_FOR_JUDGE      = 0
+	COMPILE_ERROR       = 1
+	RUN_TIME_ERROR      = 2
+	TIME_LIMIT_EXCEED   = 3
 	MEMORY_LIMIT_EXCEED = 4
-	SOURCE_NOT_FOUND = 5
-	ACCEPT = 6
-	WRONG_ANSWER = 7
-	PRESENTATION_ERROR = 8
+	SOURCE_NOT_FOUND    = 5
+	ACCEPT              = 6
+	WRONG_ANSWER        = 7
+	PRESENTATION_ERROR  = 8
 )
 
-func compile(cmd *exec.Cmd, c chan <- int) {
+func compile(cmd *exec.Cmd, c chan<- int) {
 	err := cmd.Wait()
 	if err == nil || !strings.Contains(err.Error(), "kill") {
 		c <- 1
@@ -102,20 +102,20 @@ func Execute(workDir string, state *models.Run, timeLimit, memoryLimit, uid, gid
 	log.Println("Executing Main...")
 
 	cmdStr :=
-	" lrun " +
-	" --max-cpu-time " + fmt.Sprintf("%.6f", float32(timeLimit) * languages.Languages[state.Lang].TimeOffset / 1000) +
-	" --max-real-time " + fmt.Sprintf("%.6f", float32(timeLimit) * languages.Languages[state.Lang].TimeOffset / 500) +
-	" --max-memory " + fmt.Sprintf("%dk", int(float32(memoryLimit) * languages.Languages[state.Lang].MemoryOffset)) +
-	" --syscalls '" + languages.Languages[state.Lang].Syscalls + "'" +
-	" --remount-dev true " +
-	" --network false " +
-	" --uid " + fmt.Sprintf("%d", uid) +
-	" --gid " + fmt.Sprintf("%d", gid) +
-	" --reset-env true " + fmt.Sprintf(languages.Languages[state.Lang].RunCmd, workDir) +
-	fmt.Sprintf(" 0<%s/in.txt ", workDir) +
-	fmt.Sprintf(" 1>%s/user_out.txt ", workDir) +
-	fmt.Sprintf(" 2>%s/user_err.txt ", workDir) +
-	fmt.Sprintf(" 3>%s/lrun.txt ", workDir)
+		" lrun " +
+			" --max-cpu-time " + fmt.Sprintf("%.6f", float32(timeLimit)*languages.Languages[state.Lang].TimeOffset/1000) +
+			" --max-real-time " + fmt.Sprintf("%.6f", float32(timeLimit)*languages.Languages[state.Lang].TimeOffset/500) +
+			" --max-memory " + fmt.Sprintf("%dk", int(float32(memoryLimit)*languages.Languages[state.Lang].MemoryOffset)) +
+			" --syscalls '" + languages.Languages[state.Lang].Syscalls + "'" +
+			" --remount-dev true " +
+			" --network false " +
+			" --uid " + fmt.Sprintf("%d", uid) +
+			" --gid " + fmt.Sprintf("%d", gid) +
+			" --reset-env true " + fmt.Sprintf(languages.Languages[state.Lang].RunCmd, workDir) +
+			fmt.Sprintf(" 0<%s/in.txt ", workDir) +
+			fmt.Sprintf(" 1>%s/user_out.txt ", workDir) +
+			fmt.Sprintf(" 2>%s/user_err.txt ", workDir) +
+			fmt.Sprintf(" 3>%s/lrun.txt ", workDir)
 	cmd := exec.Command("bash", "-c", cmdStr)
 	return cmd.Run()
 }
@@ -223,7 +223,7 @@ func writeRuntimeInfoToState(state *models.Run, info lrunInfo) {
 }
 
 func Validate(workDir string, state *models.Run) error {
-	info, err := parseLRUN(workDir+"/lrun.txt")
+	info, err := parseLRUN(workDir + "/lrun.txt")
 	if err != nil {
 		state.Status = RUN_TIME_ERROR
 		return err

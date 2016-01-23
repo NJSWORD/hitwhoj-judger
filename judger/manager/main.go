@@ -1,38 +1,37 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"os"
-	"flag"
 
 	"github.com/garyburd/redigo/redis"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
-	"lackofdream/oj/judger/models"
-	"lackofdream/oj/judger/languages"
-	"io/ioutil"
-	"strings"
 	"bytes"
-	"lackofdream/oj/judger/runner"
+	"io/ioutil"
+	"lackofdream/hitwhoj/judger/languages"
+	"lackofdream/hitwhoj/judger/models"
+	"lackofdream/hitwhoj/judger/runner"
+	"strings"
 )
 
-
 var (
-	redisHost string
-	redisPort string
+	redisHost    string
+	redisPort    string
 	redisAddress string
-	redisKey string
-	mongoHost string
-	mongoPort string
+	redisKey     string
+	mongoHost    string
+	mongoPort    string
 	mongoAddress string
-	maxWorkers int
-	judgeUID int
-	judgeGID int
+	maxWorkers   int
+	judgeUID     int
+	judgeGID     int
 
 	redisConnection redis.Conn
-	mongoSession *mgo.Session
+	mongoSession    *mgo.Session
 )
 
 func init() {
@@ -153,18 +152,18 @@ func work(runID int) error {
 	os.Chdir(workDir)
 
 	// 获取输入、输出文件
-	err = createFileFromGridFS(workDir + "/in.txt", problem.In, 0644)
+	err = createFileFromGridFS(workDir+"/in.txt", problem.In, 0644)
 	if handleNormalErr(err, "fetch in.txt from GridFS", "in.txt found") {
 		return err
 	}
 
-	err = createFileFromGridFS(workDir + "/out.txt", problem.Out, 0644)
+	err = createFileFromGridFS(workDir+"/out.txt", problem.Out, 0644)
 	if handleNormalErr(err, "fetch out.txt from GridFS", "out.txt found") {
 		return err
 	}
 	// Special Judge Related
 	if problem.Is_spj {
-		err = createFileFromGridFS(workDir + "/spj", problem.Spj, 0744)
+		err = createFileFromGridFS(workDir+"/spj", problem.Spj, 0744)
 		if handleNormalErr(err, "fetch spj from GridFS", "special judge binary found") {
 			return err
 		}
