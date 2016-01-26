@@ -9,4 +9,4 @@ RUN useradd -m -s /bin/bash judge
 
 ADD judger /usr/bin/
 
-CMD judger -redis-host=$REDIS_PORT_6379_TCP_ADDR -redis-port=$REDIS_PORT_6379_TCP_PORT -mongo-host=172.31.150.230
+CMD judger -redis-host=$REDIS_PORT_6379_TCP_ADDR -redis-port=$REDIS_PORT_6379_TCP_PORT -mongo-host=$MONGO_PORT_27017_TCP_ADDR -mongo-port=$MONGO_PORT_27017_TCP_PORT
