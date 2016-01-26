@@ -11,11 +11,12 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"lackofdream/hitwhoj/judger/languages"
-	"lackofdream/hitwhoj/judger/models"
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/lackofdream/hitwhoj-judger/languages"
+	"github.com/lackofdream/hitwhoj-judger/models"
 )
 
 const (

@@ -12,10 +12,11 @@ import (
 
 	"bytes"
 	"io/ioutil"
-	"lackofdream/hitwhoj/judger/languages"
-	"lackofdream/hitwhoj/judger/models"
-	"lackofdream/hitwhoj/judger/runner"
 	"strings"
+
+	"github.com/lackofdream/hitwhoj-judger/languages"
+	"github.com/lackofdream/hitwhoj-judger/models"
+	"github.com/lackofdream/hitwhoj-judger/runner"
 )
 
 var (
