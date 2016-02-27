@@ -14,9 +14,9 @@ import (
 	"io/ioutil"
 	"strings"
 
-	"github.com/lackofdream/hitwhoj-judger/languages"
-	"github.com/lackofdream/hitwhoj-judger/models"
-	"github.com/lackofdream/hitwhoj-judger/runner"
+	"github.com/HITWHOJ/hitwhoj-judger/languages"
+	"github.com/HITWHOJ/hitwhoj-judger/models"
+	"github.com/HITWHOJ/hitwhoj-judger/runner"
 )
 
 var (
