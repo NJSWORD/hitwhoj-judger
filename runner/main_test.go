@@ -1,13 +1,13 @@
 package runner
 
 import (
-	"testing"
 	"fmt"
+	"testing"
 )
 
 func TestParseLRUN(t *testing.T) {
 	info, err := parseLRUN("/tmp/lrun.txt")
-	if err!= nil {
+	if err != nil {
 		t.Fatal(err.Error())
 	}
 	if info.Memory != 364544 || info.Time != 1 || info.Signaled != 1 || info.ExitCode != 0 || info.TermSig != 31 || info.Exceed != "none" {
@@ -17,9 +17,9 @@ func TestParseLRUN(t *testing.T) {
 }
 
 func TestDiff(t *testing.T) {
-	if ok, _:=diff("/tmp/f1", "/tmp/f2"); ok {
+	if ok, _ := diff("/tmp/f1", "/tmp/f2"); ok {
 		t.Fatal("wrong!")
-	}else {
+	} else {
 		fmt.Println(ok)
 	}
 }
